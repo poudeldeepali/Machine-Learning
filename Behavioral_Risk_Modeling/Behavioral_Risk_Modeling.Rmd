@@ -1,0 +1,474 @@
+---
+title: "Final Project"
+author: "Deepali Poudel"
+date: "2024-05-20"
+output:
+  pdf_document: default
+  always_allow_html: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+knitr::opts_chunk$set(appendix = knitr::all_labels())
+```
+
+```{r Libraries,echo=FALSE,label="Library"}
+library(corrplot)
+library(ggplot2)
+library(knitr)
+library(dplyr)
+library(rsample)
+library(tidyverse)
+library(caret)
+library(patchwork)
+
+library(reshape2)
+library(rpart)
+library(glmnet)
+library(CVXR)
+library(ranger)
+library(MASS)
+library(viridis)
+library(ncvreg)
+```
+### Impulsivity and Sensation Seeking Behaviors: Observed Across different Substance Abuse levels, Personality Traits and Demographics
+
+The relationship between personality type and drug/substance consumption/abuse is a well-researched area in psychology and behavioral science. Several personality traits have been found to be associated with a higher likelihood of substance use and abuse. In my data modeling approach, I investigate the connection between substance abuse and personality traits across various demographic factors: age, ethnicity, gender, education level, and country of residence.  
+
+The dataset comprises records for 1885 respondents, each characterized by 12 attributes. These attributes include measurements of personality traits such as neuroticism, extraversion, openness to experience, agreeableness, conscientiousness, impulsivity, and sensation seeking (assessed through NEO-FFI-R and BIS-11 scales), as well as demographic information like education level, age, gender, country of residence, and ethnicity.
+
+In addition, participants were questioned concerning their use of 18 legal and illegal drugs (alcohol, amphetamines, amyl nitrite, benzodiazepine, cannabis, chocolate, cocaine, caffeine, crack, ecstasy, heroin, ketamine, legal highs, LSD, methadone, mushrooms, nicotine and volatile substance abuse and one fictitious drug (Semeron) which was introduced to identify over-claimers. For each drug they have to select one of the answers: never used the drug, used it over a decade ago, or in the last decade, year, month, week, or day. Database contains 18 classification problems. Each of independent label variables contains seven classes: "Never Used", "Used over a Decade Ago", "Used in Last Decade", "Used in Last Year", "Used in Last Month", "Used in Last Week", and "Used in Last Day".
+
+My goal is to utilize supervised learning techniques, specifically regression models, across different approaches: Lasso regression, elastic net regression, SCAD regression, and MC+ regression for feature selection and regularization. I conducted visual data analysis to explore the variation of different variables across various demographic categories. This visual analysis assists in comprehending the dataset's relationships and patterns, offering insight into the rationale behind selecting specific target variables for analysis. I also separate the dataset into training and testing models in order to verify that the model that we have selected and Key predictors that it provides is appropriate for out dataset.
+
+Additionally, I employ an unsupervised learning technique, K-means clustering, to explore clusters or groups observed among all variables, a subset of personality types and population demographics, as well as a subset of different substances available in the dataset. The purpose of K-means clustering in this context is to identify natural groupings or clusters within the dataset based on the features provided. 
+
+By grouping similar observations together, K-means clustering can reveal underlying structures or patterns in the data, potentially highlighting distinct subpopulations, behavioral trends, or substance usage profiles. This analysis can aid in segmenting the dataset and providing insights into potential relationships or associations between variables that may not be immediately apparent through visual exploration alone. 
+
+Lasso Regression: Lasso (Least Absolute Shrinkage and Selection Operator) regression is a linear regression technique that imposes a penalty on the absolute size of the regression coefficients. Lasso regression encourages sparse models by shrinking some coefficients to exactly zero, effectively performing variable selection and reducing the model complexity. I use this technique on the dataset as it can help identify the most relevant features while excluding irrelevant ones. Initially for feature selection I had thought of using ridge regression, however due to the lack of significant multicollinearity I decided against it.
+
+The other regression techniques I employed to create different models for comparion and optimization were Elasctic Net Regression, SCAD Regression and MC+ Regression. Elastic Net Regression:  is a hybrid of Lasso and Ridge regression techniques. It adds both L1 (Lasso) and L2 (Ridge) penalties to the regression coefficients. Elastic Net regression combines the feature selection properties of Lasso with the regularization properties of Ridge, allowing it to handle multicollinearity and select relevant features while still penalizing the model complexity. 
+
+Upon processing the dataset the initial variables g=had to be broken down doe vraibles with different factors. For example Alcohol consumption level : CL0 - CL6 needed to be converted into 6 binary classified variables. SCAD regression is used when variable selection is desired in situations where the true model is sparse, but the number of predictors is large. Thus including SCAD into the analysis was important. MC+ regression is also suitable for variable selection tasks where a sparse model is desired. In summary, these regression techniques are used for variable selection and regularization purposes, helping to identify important predictors while avoiding overfitting in regression models. They differ in the penalty functions they apply to the regression coefficients and their behavior in selecting variables. 
+
+
+## Data Visualization
+
+```{r Q1.A,echo=FALSE,label="Q1.A"}
+drugc <- read.csv("/users/deepali/Desktop/drug_consumption.csv", header = TRUE)
+drugc <- drugc[,-1]
+
+plot_age <- ggplot(drugc, aes(x = Age)) + geom_histogram() + labs(title = "Age")
+plot_gender <- ggplot(drugc, aes(x = Gender)) + geom_bar() + labs(title = "Gender")
+plot_education <- ggplot(drugc, aes(x = Education)) + geom_histogram() + labs(title = "Education")
+plot_country <- ggplot(drugc, aes(x = Country)) + geom_bar() + labs(title = "Country")
+plot_ethnicity <- ggplot(drugc, aes(x = Ethnicity)) + geom_histogram() + labs(title = "Ethnicity")
+plot_Nscore <- ggplot(drugc, aes(x = Nscore)) + geom_histogram() + labs(title = "Nscore")
+plot_Escore <- ggplot(drugc, aes(x = Escore)) + geom_histogram() + labs(title = "Escore")
+plot_Oscore <- ggplot(drugc, aes(x = Oscore)) + geom_histogram() + labs(title = "Oscore")
+plot_Ascore <- ggplot(drugc, aes(x = Ascore)) + geom_histogram() + labs(title = "Ascore")
+plot_Cscore <- ggplot(drugc, aes(x = Cscore)) + geom_histogram() + labs(title = "Cscore")
+plot_Impulsive <- ggplot(drugc, aes(x = Cscore)) + geom_histogram() + labs(title = "Impulsive")
+plot_SS <- ggplot(drugc, aes(x = Cscore)) + geom_histogram() + labs(title = "SS")
+
+library(patchwork)
+(plot_age + plot_gender + plot_education + plot_country + plot_ethnicity + plot_Nscore + plot_Escore + plot_Oscore + plot_Ascore + plot_Cscore + plot_Impulsive + plot_SS) +
+plot_layout(ncol=3) +
+theme(legend.position = "bottom")
+```
+
+Here, we see the distribution of different personality traits with the use of histogram and the distribution of population demographics using Bar graphs. Upon observation the Nscore and Oscore provide a bell like structure indicating the presence of normality compared to other personality tests. When it comes to the population demographics the variation withing the group is rather large between country and Ethniticy. Other demographic graphs do not exhibit any stark variation that should be flagged. 
+
+Before creating a model to pick out the key predictors we will observe the correlation between the different variables which do not include the substances and substances consumption level as provided by the data.
+
+```{r Q1.B,echo=FALSE,label="Q1.B"}
+#Dummies for factor variables
+dummies<- dummyVars(~.,data = drugc)
+data_encoded <- predict(dummies, newdata = drugc)
+data_encoded <- as.data.frame(data_encoded)
+data_encoded1 = scale(data_encoded)
+numeric_cols = drugc %>% select_if(is.numeric)
+set.seed(2345)
+cc2 = cor(numeric_cols)
+cc2_melt=melt(cc2)
+gz = ggplot(cc2_melt, mapping=aes(x=Var1,y=Var2,fill=value))+
+geom_tile()+
+theme(axis.text.x = element_text(angle = 90, hjust = 1))+
+theme(text = element_text(size = 8))+
+ggtitle("Heat map for drug Consumption: Numeric Predictors")+
+ylab(" ")+
+xlab(" ")+
+scale_fill_distiller(palette = "RdPu")
+print(gz)
+
+findCorrelation(cor(numeric_cols),cutoff = 0.6, verbose = TRUE, names = TRUE, exact = ncol(cor(numeric_cols)) < 100)
+```
+The lightest shade, the diagonal is the correlation of the variables to itself. Anything else that is closeby to the lightest color are highly correlated. For example from the heatmap we can tell that the variables Age and Country are highly correlated and so are the variables SS and Oscore. Whereas Nscore and Cscore or SS and country have a very low correlation.Because the threshold was set to 0.6 we see that the variable SS in conjunction with other variables contributes to the issue with linear regression assumption.However the extent of multicollinearity is low thus we decide against a ridge regression. 
+However I decided to include all the factor variables to make a final decision on the optimum model
+
+Converting factor variables with multiple levels into binary indicators is a common preprocessing step when preparing data for linear regression analysis. It allows you to include categorical information in the model while ensuring compatibility with the requirements of linear regression.
+
+```{r Q1.C,echo=FALSE,label="Q1.C"}
+#Correlation between all final variables
+findCorrelation(cor(data_encoded),cutoff = 0.6, verbose = TRUE, names = TRUE, exact = ncol(cor(data_encoded)) < 100)
+```
+Out of 143 variables, only 10 do not conform to the assumptions of linear regression. Given the total number of variables, I chose to use both Lasso and Elastic Net for feature selection. These methods penalize the size of the coefficients in the regression model. When applied to nearly linear equations—where multicollinearity is present but not overwhelming—they tend to select a subset of predictors that best explain the variation in the target variable while effectively managing multicollinearity.
+
+I transformed the factors of the substances into dummy variables (similar to one-hot or label encoding). Initially, I included all variables in the model. However, upon examining the Lasso/Elastic Net plots, I found that highly correlated variables exhibited high bias. To address this issue, I decided to exclude those variables from the model.
+
+When setting Impulsivity as the target variable, the highly correlated variables were ("SS", "CaffCL6", "ChocCL6", "CokeCL0", "EcstasyCL0", "CrackCL0", "LSDCL0", "LSDL1", "SemerCL0", "VSACL0"). Our previous heatmap already showed a correlation between SS and Impulsivity. Upon reviewing each variable, their relationships appeared to be outliers. For example, LSDCL0 indicated that no impulsive characteristics were present in individuals who do not use LSD, which is logical based on our dataset. The Semeron drug, a fictitious substance introduced in the study, had a level 0 correlation with Impulsivity. This makes sense, as impulsive individuals would not need to fabricate impulsive traits.
+
+## 2.A SUPERVISED LEARNING TECHNIQUE
+
+## Key Predictors
+```{r Q2.A,echo=FALSE,label="Q2.A"}
+# Define the key_predictor_plot function
+key_predictor_plot <- function(x, ..., num_predictors=10, alpha_min=0.4) {
+  if (inherits(x, "glmnet")) {
+    beta <- coef(x)
+  } else if (inherits(x, "ncvreg")) {
+    beta <- if (length(x$penalty.factor) == nrow(x$beta)) {
+      coef(x)
+    } else {
+      coef(x)[-1, , drop = FALSE]
+    }
+  }
+  
+  lambda <- x$lambda
+  active <- glmnet:::nonzeroCoef(beta)
+  nactive <- length(active)
+  beta <- as.matrix(beta[active, , drop = FALSE])
+  index <- log(lambda)
+  xlab <- expression(log(lambda))
+  
+  key_predictors <- names(which(beta[, max(which(colSums(beta != 0) <= num_predictors))] != 0))
+  
+  if ((length(key_predictors) > num_predictors) | (length(key_predictors) < 2)) {
+    key_predictors <- rownames(beta)[rank(-abs(beta[, ncol(beta)]))][1:num_predictors]
+  }
+  
+  mb <- melt(beta)
+  colnames(mb) <- c("Variable", "Step", "Beta")
+  mb$Variable <- as.character(mb$Variable)
+  mb <- cbind(mb, key_predictor = mb$Variable %in% key_predictors)
+  mb <- cbind(mb, LogLambda = rep(index, each = nrow(beta)))
+  mb <- cbind(mb, plot_color = ifelse(mb$key_predictor, mb$Variable, "Other"))
+  
+  ggplot(mb, aes(x = LogLambda, y = Beta, group = Variable)) + 
+    geom_line(aes(color = plot_color, alpha = key_predictor)) + 
+    scale_alpha_manual(values = c(`TRUE` = 1, `FALSE` = alpha_min), guide = "none") +
+    xlab(expression(log(lambda))) + 
+    ylab(expression(hat(beta[j]))) +
+    theme_bw() + 
+    scale_color_discrete(guide = guide_legend(title = "Predictor")) +
+    ggtitle("Key Predictor Plot")
+}
+```
+## 2.B Target Variable: BIS-11 (IMPULSIVITY)
+```{r Q2.B,echo=FALSE,label="Q2.B"}
+drugc <- read.csv("/users/deepali/Desktop/drug_consumption.csv", header = TRUE)
+drugc <- drugc[,-1]
+
+#based on the high correlation between Impulsivity and SS we take SS out of the X variables
+exclude_variables <- c("SS","CaffCL6", "ChocCL6","CokeCL0","EcstasyCL0","CrackCL0","LSDCL0","LSDL1","SemerCL0","VSACL0","Impulsive")
+
+X <- data_encoded1[, !colnames(data_encoded1) %in% exclude_variables]
+Y <- data_encoded1[, "Impulsive"]
+Y <- Y - mean(Y)
+X <- scale(X)
+
+
+# Split data into training and testing sets
+set.seed(42)  # For reproducibility
+train_indices <- sample(1:nrow(X), size = 0.7 * nrow(X))
+X_train <- X[train_indices, ]
+Y_train <- Y[train_indices]
+X_test <- X[-train_indices, ]
+Y_test <- Y[-train_indices]
+
+# Fit models on the training data
+g_en025 <- key_predictor_plot(glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.25,intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("Elastic Net Regression with" ~ alpha ~ "=" ~ 0.25))
+g_en050 <- key_predictor_plot(glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.5,intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("Elastic Net Regression with" ~ alpha ~ "=" ~ 0.5))
+g_en075 <- key_predictor_plot(glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.75),intercept = FALSE, alpha_min = 0.01) + ggtitle(expression("Elastic Net Regression with" ~ alpha ~ "=" ~ 0.75))
+g_la <- key_predictor_plot(glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 1,intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("Elastic Net Regression with" ~ alpha ~ "=" ~ 1 ~ ": Lasso"))
+g_sc <- key_predictor_plot(ncvreg(X = X_train, y = Y_train, family = "gaussian", penalty = "SCAD",intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("SCAD Regression"))
+g_mc <- key_predictor_plot(ncvreg(X = X_train, y = Y_train, family = "gaussian", penalty = "MCP",intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("MC+ Regression"))
+
+# Combine plots using patchwork
+(g_en025 + g_en050 + g_en075 + g_la + g_sc + g_mc) + plot_layout(ncol = 2) & theme(legend.position = "bottom")
+
+```
+The Root Mean Squared Error (RMSE) score is a commonly used metric to evaluate the performance of a predictive model, particularly in regression analysis. It measures the average magnitude of the errors between predicted values and observed values.Overall, RMSE is a widely used metric because it provides a clear and interpretable measure of prediction accuracy, highlighting the presence of large errors.
+
+
+Upon comparing the key predictors across all models, we observe consistency in their selection across different alpha values in Elastic Net Regression along with the Lasso model. Notably, SCAD regression displays similarity in predictor selection, whereas MC+ Regression introduces predictors unique to its model, such as VSACL2 and Nicotine CL6. These findings align with our understanding of personality traits, revealing a correlation between smoking and impulsivity. Contrary to our earlier conclusion that impulsive individuals refrain from fabricating information about themselves, our model suggests otherwise.
+
+## 2.C Target Variable: BIS-11 (IMPULSIVITY) : Model Evaluation
+```{r Q2.C,echo=FALSE,label="Q2.C"}
+
+models <- list(
+en025 = glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.25),
+en050 = glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.5),
+en075 = glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.75),
+la = glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 1),
+sc = ncvreg(X = X_train, y = Y_train, family = "gaussian", penalty = "SCAD"),
+mc = ncvreg(X = X_train, y = Y_train, family = "gaussian", penalty = "MCP")
+)
+
+predictions <- lapply(models, function(model) {
+if (inherits(model, "glmnet")) {
+predict(model, s = model$lambda.min, newx = X_test)
+} else if (inherits(model, "ncvreg")) {
+predict(model, X_test)
+}
+})
+
+# Calculate and print the RMSE for each model
+rmse <- function(pred, actual) {
+sqrt(mean((pred - actual)^2))
+}
+
+rmse_values <- sapply(predictions, rmse, Y_test)
+print(rmse_values)
+```
+Among these models, the MCP regression model (mc) has the lowest RMSE value (0.8943), indicating that it has the best performance in terms of minimizing the prediction error for this particular dataset. On the other hand, the Elastic Net model with alpha = 0.25 (en025) has the highest RMSE value (0.8990), suggesting it performs the worst among the models evaluated here. 
+
+MC+ model is also selected when we assume that a small subset of predictors has a strong effect on the outcome, and we want a sparse model. Since the data was tested on a test sample we can say that our model performs well.
+
+## 2.D Target Variable: SS (SENSITIVITY)
+```{r Q2.D,echo=FALSE,label="Q2.D"}
+exclude_variables <- c("SS","CaffCL6", "ChocCL6","CokeCL0","EcstasyCL0","CrackCL0","LSDCL0","LSDL1","SemerCL0","VSACL0","Impulsive")
+X <- data_encoded1[, !colnames(data_encoded1) %in% exclude_variables]
+Y <- data_encoded1[, "SS"]
+Y <- Y - mean(Y)
+X <- scale(X)
+# Split data into training and testing sets
+set.seed(42)  # For reproducibility
+train_indices <- sample(1:nrow(X), size = 0.7 * nrow(X))
+X_train <- X[train_indices, ]
+Y_train <- Y[train_indices]
+X_test <- X[-train_indices, ]
+Y_test <- Y[-train_indices]
+
+# Fit models on the training data
+g_en025 <- key_predictor_plot(glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.25,intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("Elastic Net Regression with" ~ alpha ~ "=" ~ 0.25))
+g_en050 <- key_predictor_plot(glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.5,intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("Elastic Net Regression with" ~ alpha ~ "=" ~ 0.5))
+g_en075 <- key_predictor_plot(glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.75),intercept = FALSE, alpha_min = 0.01) + ggtitle(expression("Elastic Net Regression with" ~ alpha ~ "=" ~ 0.75))
+g_la <- key_predictor_plot(glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 1,intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("Elastic Net Regression with" ~ alpha ~ "=" ~ 1 ~ ": Lasso"))
+g_sc <- key_predictor_plot(ncvreg(X = X_train, y = Y_train, family = "gaussian", penalty = "SCAD",intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("SCAD Regression"))
+g_mc <- key_predictor_plot(ncvreg(X = X_train, y = Y_train, family = "gaussian", penalty = "MCP",intercept = FALSE), alpha_min = 0.01) + ggtitle(expression("MC+ Regression"))
+
+# Combine plots using patchwork
+(g_en025 + g_en050 + g_en075 + g_la + g_sc + g_mc) + plot_layout(ncol = 2) & theme(legend.position = "bottom")
+
+```
+Upon comparing the key predictors across all models, we observe consistency in the key predictors for all our models. A predictor that wsasnt included when we did our test on Impulsivity was Age.It goes to show that Age is a bigger factor while predicting sensitivity V/s Impulsivity
+
+## 2.E Target Variable: SS (SENSITIVITY) : Model Evaluation
+```{r 2.E,echo=FALSE,label="2.E"}
+models <- list(
+en025 = glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.25),
+en050 = glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.5),
+en075 = glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 0.75),
+la = glmnet(x = X_train, y = Y_train, family = "gaussian", alpha = 1),
+sc = ncvreg(X = X_train, y = Y_train, family = "gaussian", penalty = "SCAD"),
+mc = ncvreg(X = X_train, y = Y_train, family = "gaussian", penalty = "MCP")
+)
+
+predictions <- lapply(models, function(model) {
+if (inherits(model, "glmnet")) {
+predict(model, s = model$lambda.min, newx = X_test)
+} else if (inherits(model, "ncvreg")) {
+predict(model, X_test)
+}
+})
+
+# Calculate and print the RMSE for each model
+rmse <- function(pred, actual) {
+sqrt(mean((pred - actual)^2))
+}
+
+rmse_values <- sapply(predictions, rmse, Y_test)
+print(rmse_values)
+```
+With similar RMSE values across the different models we observe the MC+ regression RMSE to be slightly lower than the rest of the model which concludes that MC+ is the best model while predicting these variables.
+
+## 3.A UNSUPERVISED LEARNING: K- MEANS CLUSTERING
+
+Instead of converting variables into dummy variables of 0 and 1 based on their class, I opted for a different approach in the unsupervised model. Here, the analysis is conducted on substances, with their levels converted into numerical values and then scaled relative to the rest of the data.
+
+
+# 3.B K_MEANS CLUSTERING (Conducted on: all Personality and Subtance variables)
+
+I used an elbow plot to pick the number of optimal clusters for this analysis. On the X axis we see the Number of Clusters and on the Y axis we see The Within- Clusteer Sum of Squares. It is always ideal to pick the smaller number of cluster groups as compared to the bigger number if there isnt a significinant drop in their corresponding WSS value. 
+
+```{r 3.B,echo=FALSE,label="3.B"}
+
+drugc <- read.csv("/users/deepali/Desktop/drug_consumption.csv", header = TRUE)
+drugc <- drugc[,-1]
+#Now they are no factors just numbers
+selected_vars <- c("Age", "Gender", "Education", "Country", "Ethnicity", "Nscore", "Escore", "Oscore","Ascore","Cscore","Impulsive","SS")
+
+X_selected <- drugc[, selected_vars]
+df <- drugc
+df <- drugc[,-1]
+df<- df[,-1]
+df<- df[,-1]
+df<- df[,-1]
+df<- df[,-1]
+df<- df[,-1]
+df<- df[,-1]
+df<- df[,-1]
+df<- df[,-1]
+df<- df[,-1]
+df<- df[,-1]
+df<- df[,-1]
+
+df$Alcohol <- gsub("^CL", "", df$Alcohol)
+df$Amphet <- gsub("^CL", "", df$Amphet)
+df$Amyl <- gsub("^CL", "", df$Amyl)
+df$Benzos <- gsub("^CL", "", df$Benzos)
+df$Caff <- gsub("^CL", "", df$Caff)
+df$Cannabis <- gsub("^CL", "", df$Cannabis)
+df$Choc<- gsub("^CL", "", df$Choc)
+df$Coke<- gsub("^CL", "", df$Coke)
+df$Crack<- gsub("^CL", "", df$Crack)
+df$Ecstasy<- gsub("^CL", "", df$Ecstasy)
+df$Heroin<- gsub("^CL", "", df$Heroin)
+df$Ketamine<- gsub("^CL", "", df$Ketamine)
+df$Legalh<- gsub("^CL", "", df$Legalh)
+df$LSD<- gsub("^CL", "", df$LSD)
+df$Meth<- gsub("^CL", "", df$Meth)
+df$Mushrooms<- gsub("^CL", "", df$Mushrooms)
+df$Nicotine<- gsub("^CL", "", df$Nicotine)
+df$Semer<- gsub("^CL", "", df$Semer)
+df$VSA<- gsub("^CL", "", df$VSA)
+
+
+dadaa <- cbind.data.frame(df,X_selected)
+dadaa <- mutate_if(dadaa, is.character, as.numeric)
+dadaa <- scale(dadaa)
+
+wss <- numeric(10)
+for (i in 1:10) {
+kmeans_model <- kmeans(dadaa, centers = i)
+wss[i] <- sum(kmeans_model$withinss)
+}
+plot(1:10, wss, type = "b", xlab = "Number of Clusters (k)", ylab = "Within-cluster Sum of Squares")
+
+# Perform k-means clustering with the chosen value of k
+optimal_k <- 5  
+kmeans_model <- kmeans(dadaa, centers = optimal_k)
+# Assign cluster labels to each observation
+cluster_labels <- kmeans_model$cluster
+ 
+# Now, you can proceed with further analysis, such as plotting cluster means
+# Aggregate cluster means
+cluster_means <- aggregate(dadaa, by = list(cluster_labels), FUN = mean)
+
+# Remove the cluster column
+cluster_means <- cluster_means[, -1]
+
+# Transpose the data for heatmap plotting
+cluster_means <- t(cluster_means)
+
+# Plot heatmap
+heatmap(cluster_means, Rowv = NA, Colv = NA, col = viridis(10), scale = "none",
+main = "Heatmap of Cluster Means", xlab = "Features", ylab = "Clusters")
+```
+
+Based on the elbow plot, the optimal number of clusters chosen was 5. The cluster assignments revealed that Clusters 2 and 3 contained participants with similar personality types and caffeine intake. Clusters 1 and 5 displayed similarities in substance consumption, but Cluster 5 had participants with lower Sensation Seeking (SS) and Conscientiousness (C) scores. Cluster 4 was characterized by participants with different nicotine consumption patterns, potentially indicating a very low level of nicotine use compared to the other clusters.
+
+# 3.C K_MEANS CLUSTERING (Conducted on: all subtances)
+```{r 3.C,echo=FALSE,label="3.C"}
+df <- mutate_if(df, is.character, as.numeric)
+scaled_df <- scale(df)
+wss <- numeric(10)
+for (i in 1:10) {
+kmeans_model <- kmeans(scaled_df, centers = i)
+wss[i] <- sum(kmeans_model$withinss)
+}
+
+plot(1:10, wss, type = "b", xlab = "Number of Clusters (k)", ylab = "Within-cluster Sum of Squares")
+optimal_k <- 4  
+kmeans_model <- kmeans(scaled_df, centers = optimal_k)
+# Assign cluster labels to each observation
+cluster_labels <- kmeans_model$cluster
+ 
+# Now, you can proceed with further analysis, such as plotting cluster means
+# Aggregate cluster means
+cluster_means <- aggregate(scaled_df, by = list(cluster_labels), FUN = mean)
+
+# Remove the cluster column
+cluster_means <- cluster_means[, -1]
+
+# Transpose the data for heatmap plotting
+cluster_means <- t(cluster_means)
+
+# Plot heatmap
+heatmap(cluster_means, Rowv = NA, Colv = NA, col = viridis(10), scale = "none",
+main = "Heatmap of Cluster Means", xlab = "Features", ylab = "Clusters")
+```
+Using the elbow method, I determined that 4 clusters were optimal for this analysis. The goal is to identify underlying characteristics that highlight similarities in the consumption of different substances. Initially, we observe that Clusters 2 and 3 may share similar properties, as their colors are more closely aligned compared to the other clusters. Examining each substance between these clusters reveals alternating darkness in colors. For example, alcohol consumption is lower in Cluster 2 and slightly higher in Cluster 3, while meth consumption is somewhat lower in Cluster 3 than in Cluster 2.
+
+Comparing Clusters 1 and 4, where the colors are darker, Cluster 4 indicates a higher level of consumption compared to Cluster 1. Specifically, cannabis consumption is average across all clusters but peaks in Cluster 4. Both mushroom and nicotine consumption are consistent among all clusters, with Cluster 4 showing the highest levels. Therefore, we can conclude that cannabis, nicotine, and mushroom consumption are highest in Cluster 4, followed by Cluster 1.
+
+# 3.D K_MEANS CLUSTERING (Conducted on: All Variables excluding(subtances))
+```{r 3.D,echo=FALSE,label="3.D"}
+drugc <- read.csv("/users/deepali/Desktop/drug_consumption.csv", header = TRUE)
+drugc <- drugc[,-1]
+selected_vars <- c("Age", "Gender", "Education", "Country", "Ethnicity", "Nscore", "Escore", "Oscore","Ascore","Cscore","Impulsive","SS")
+X_selected <- drugc[, selected_vars]
+str(X_selected)
+wss <- numeric(10)
+for (i in 1:10) {
+kmeans_model <- kmeans(X_selected, centers = i)
+wss[i] <- sum(kmeans_model$withinss)
+}
+plot(1:10, wss, type = "b", xlab = "Number of Clusters (k)", ylab = "Within-cluster Sum of Squares")
+# Perform k-means clustering with the chosen value of k
+optimal_k <- 4  
+kmeans_model <- kmeans(X_selected, centers = optimal_k)
+# Assign cluster labels to each observation
+cluster_labels <- kmeans_model$cluster
+
+# Now, you can proceed with further analysis, such as plotting cluster means
+# Aggregate cluster means
+cluster_means <- aggregate(X_selected, by = list(cluster_labels), FUN = mean)
+ 
+# Remove the cluster column
+cluster_means <- cluster_means[, -1]
+ 
+# Transpose the data for heatmap plotting
+cluster_means <- t(cluster_means)
+
+# Plot heatmap
+heatmap(cluster_means, Rowv = NA, Colv = NA, col = viridis(10), scale = "none",
+main = "Heatmap of Cluster Means", xlab = "Features", ylab = "Clusters")
+```
+Using the Elbow method, we determined that the optimal number of clusters is 4. Gender is distributed almost uniformly across all clusters. Clusters 1 and 4 score higher on SS and Impulsivity, whereas Cluster 2 has higher Cscore and Ascore. Other observations from this heatmap include: Nscore is high in Cluster 1 and very low in Cluster 2. Age is varied significantly among clusters. In Clusters 3 and 4, we see that people in the higher age range tend to have lower Oscore and Escore compared to Cluster 4.
+
+
+### Conclusion:
+
+This study aimed to utilize supervised learning techniques—Lasso regression, Elastic Net regression, SCAD regression, and MC+ regression—for feature selection and regularization. By conducting visual data analysis, we explored the variations in different variables across demographic categories, providing insights into the relationships within the dataset and the rationale for selecting specific target variables. 
+
+The dataset was divided into training and testing sets to ensure the robustness of the selected models and key predictors. Additionally, K-means clustering, an unsupervised learning technique, was employed to identify natural groupings within the dataset based on features, personality types, population demographics, and substance consumption levels. 
+
+Feature selection was performed using Lasso and Elastic Net, which manage multicollinearity by penalizing coefficient size. The RMSE scores indicated that the MC+ regression model performed best, suggesting its suitability for this dataset. Clustering analysis revealed distinct groupings based on personality traits and substance consumption, with significant insights into patterns such as the highest levels of cannabis, nicotine, and mushroom consumption in Cluster 4. 
+
+## Caveats:
+- Multicollinearity: Despite managing multicollinearity with Lasso and Elastic Net, some degree of multicollinearity remains, which could affect model accuracy. 
+- Data Distribution: The dataset's distribution may not be entirely representative of the general population, potentially limiting the generalizability of the findings. 
+- Feature Transformation: Converting categorical variables into dummy variables can sometimes oversimplify the relationships between variables, possibly leading to loss of information. 
+- Unsupervised Learning Limitations: K-means clustering assumes spherical clusters and may not capture more complex cluster shapes, potentially missing nuanced relationships in the data. 
+
+## Future Suggestions:
+- Expand Dataset: Collect more data to ensure a more comprehensive representation of the population, which would enhance the robustness and generalizability of the models. 
+- Complex Clustering Methods: Utilize more advanced clustering methods,as Gaussian Mixture Models, to capture more complex patterns and relationships within the data. 
+
+By addressing these caveats and following the suggested future directions, the analysis can be further refined and improved, leading to more accurate and insightful findings.
+
+```{r, include=TRUE, results='asis'}
+knitr::all_labels()
+```
